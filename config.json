@@ -1,11 +1,11 @@
 {
-  "initial_position": 10.0,
-  "initial_velocity": 0.0,
-  "dt": 0.1,
+  "initial_position": 100.0,
+  "initial_velocity": 100.0,
+  "dt": 0.5,
   "w": 1.0,
-  "gamma": 1.0,
-  "simulation_time": 100.0,
-  "output_file": "EulerResults.csv",
-  "method": "Euler",
-  "equation": "DampedPhysPendulum"
+  "gamma": 4.0,
+  "simulation_time": 10,
+  "output_file": "RK4Results.csv",
+  "method": "RK4",
+  "equation": "DampedMathPendulum"
 }
