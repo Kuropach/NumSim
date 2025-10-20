@@ -56,11 +56,16 @@ void Hoina(PendulumFunc func, std::vector<double> params, double sim_time, doubl
         double x_i = x.back();
         double v_i = v.back();
 
-        std::vector<double> y1 = func(params, {x_i, v_i}); //считаем пердикторы
-        std::vector<double> y2 = func(params, {x_i + y1[0], v_i + y1[1]}); //считаем корректор
+        // Предиктор
+        std::vector<double> k1 = func(params, {x_i, v_i});
+        double x_pred = x_i + dt * k1[0];
+        double v_pred = v_i + dt * k1[1];
 
-        double x_next = x_i + dt * 0.5 * y2[0];
-        double v_next = v_i + dt * 0.5 * y2[1];
+        // Корректор
+        std::vector<double> k2 = func(params, {x_pred, v_pred});
+        
+        double x_next = x_i + dt * 0.5 * (k1[0] + k2[0]);
+        double v_next = v_i + dt * 0.5 * (k1[1] + k2[1]);
         double t_next = t.back() + dt;
         
         x.push_back(x_next);
