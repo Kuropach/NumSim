@@ -6,29 +6,37 @@
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
-using PendulumFunc = std::vector<double>(*)(std::vector<double>, std::vector<double>);
+using PendulumFunc = std::vector<double>(*)(std::vector<double>, double, std::vector<double>);
 
-std::vector<double> MathPendulum(std::vector<double> params, std::vector<double> x){
+std::vector<double> MathPendulum(std::vector<double> params, double x, std::vector<double> y){
     double w = params[0];
-    std::vector<double> y = {x[1], -w*w*x[0]};
-    return y;
+    std::vector<double> f = {y[1], -w*w*y[0]};
+    return f;
 }
-std::vector<double> PhysPendulum(std::vector<double> params, std::vector<double> x){
+std::vector<double> PhysPendulum(std::vector<double> params, double x, std::vector<double> y){
     double w = params[0];
-    std::vector<double> y = {x[1], -w*w*std::sin(x[0])};
-    return y;
+    std::vector<double> f = {y[1], -w*w*std::sin(y[0])};
+    return f;
 }
-std::vector<double> DampedMathPendulum(std::vector<double> params, std::vector<double> x){
+std::vector<double> DampedMathPendulum(std::vector<double> params, double x, std::vector<double> y){
     double w = params[0];
     double gamma = params[1];
-    std::vector<double> y = {x[1], -w*w*x[0] - gamma*x[1]};
-    return y;
+    std::vector<double> f = {y[1], -w*w*y[0] - gamma*y[1]};
+    return f;
 }
-std::vector<double> DampedPhysPendulum(std::vector<double> params, std::vector<double> x){
+std::vector<double> DampedPhysPendulum(std::vector<double> params, double x, std::vector<double> y){
     double w = params[0];
     double gamma = params[1];
-    std::vector<double> y = {x[1], -w*w*std::sin(x[0]) - gamma*x[1]};
-    return y;
+    std::vector<double> f = {y[1], -w*w*std::sin(y[0]) - gamma*y[1]};
+    return f;
+}
+std::vector<double> ForcedDampedMathPendulum(std::vector<double> params, double x, std::vector<double> y){
+    double w = params[0];
+    double gamma = params[1];
+    double omega = params[2];
+    double A = params[3];
+    std::vector<double> f = {y[1], -w*w*y[0] - gamma*y[1] + A*std::sin(omega*x)};
+    return f;
 }
 
 void RK4(PendulumFunc func, std::vector<double> params, double sim_time, double dt, std::vector<double> &x, std::vector<double> &v, std::vector<double> &t){
@@ -37,11 +45,12 @@ void RK4(PendulumFunc func, std::vector<double> params, double sim_time, double 
     for (int i = 0; i < steps; i++)  {
         double x_i = x.back();
         double v_i = v.back();
+        double t_i = t.back();
 
-        std::vector<double> y1 = func(params, {x_i, v_i});
-        std::vector<double> y2 = func(params, {x_i + dt/2*y1[0], v_i + dt/2*y1[1]});
-        std::vector<double> y3 = func(params, {x_i + dt/2*y2[0], v_i + dt/2*y2[1]});
-        std::vector<double> y4 = func(params, {x_i + dt*y3[0], v_i + dt*y3[1]});
+        std::vector<double> y1 = func(params, t_i+dt/2, {x_i, v_i});
+        std::vector<double> y2 = func(params, t_i+dt/2, {x_i + dt/2*y1[0], v_i + dt/2*y1[1]});
+        std::vector<double> y3 = func(params, t_i+dt/2, {x_i + dt/2*y2[0], v_i + dt/2*y2[1]});
+        std::vector<double> y4 = func(params, t_i+dt/2, {x_i + dt*y3[0], v_i + dt*y3[1]});
 
         x.push_back(x[i] + dt/6*(y1[0] + 2*y2[0] + 2*y3[0] + y4[0]));
         v.push_back(v[i] + dt/6*(y1[1] + 2*y2[1] + 2*y3[1] + y4[1]));
@@ -55,14 +64,15 @@ void Hoina(PendulumFunc func, std::vector<double> params, double sim_time, doubl
     for (int i = 0; i < steps; i++)  {
         double x_i = x.back();
         double v_i = v.back();
+        double t_i = t.back();
 
         // Предиктор
-        std::vector<double> k1 = func(params, {x_i, v_i});
+        std::vector<double> k1 = func(params, t_i+dt/2, {x_i, v_i});
         double x_pred = x_i + dt * k1[0];
         double v_pred = v_i + dt * k1[1];
 
         // Корректор
-        std::vector<double> k2 = func(params, {x_pred, v_pred});
+        std::vector<double> k2 = func(params, t_i+dt/2, {x_pred, v_pred});
         
         double x_next = x_i + dt * 0.5 * (k1[0] + k2[0]);
         double v_next = v_i + dt * 0.5 * (k1[1] + k2[1]);
@@ -80,8 +90,9 @@ void Euler(PendulumFunc func, std::vector<double> params, double sim_time, doubl
     for (int i = 0; i < steps; i++)  {
         double x_i = x.back();
         double v_i = v.back();
+        double t_i = t.back();
 
-        std::vector<double> y = func(params, {x_i, v_i});
+        std::vector<double> y = func(params, t_i+dt/2, {x_i, v_i});
 
         double x_next = x_i + dt * y[0];
         double v_next = v_i + dt * y[1];
@@ -108,12 +119,14 @@ int main(int argc, char* argv[]) {
 	double x_0 = j["initial_position"];
 	double w = j["w"];
 	double gamma = j["gamma"];
+    double omega = j["omega"];
+    double A = j["A"];
 	std::string output_path = j["output_file"];
     std::string method = j["method"];
     std::string equation = j["equation"];
 
     // Инициализация векторов для хранения результатов
-    std::vector<double> params = {w, gamma};
+    std::vector<double> params = {w, gamma, omega, A};
     std::vector<double> x = {x_0};
     std::vector<double> v = {v_0};
     std::vector<double> t = {0};
@@ -127,6 +140,8 @@ int main(int argc, char* argv[]) {
         pendulum = DampedMathPendulum;
     else if (equation == "DampedPhysPendulum")
         pendulum = DampedPhysPendulum;
+    else if (equation == "ForcedDampedMathPendulum")
+        pendulum = ForcedDampedMathPendulum;
     else {
         std::cerr << "Unknown equation type!" << std::endl;
         return 1;
